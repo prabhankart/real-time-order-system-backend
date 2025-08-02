@@ -4,6 +4,7 @@ const sgMail = require('@sendgrid/mail');
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+// Logic to create a new order
 exports.createOrder = async (req, res) => {
     const { customerName, orderAmount } = req.body;
     const userId = req.user.userId;
@@ -25,6 +26,7 @@ exports.createOrder = async (req, res) => {
             customerEmail,
             orderAmount: parseFloat(orderAmount),
             invoiceFileUrl,
+            user: userId, // Link the order to the user
         });
         await order.save();
 
@@ -43,25 +45,40 @@ exports.createOrder = async (req, res) => {
     }
 };
 
+// Logic to get orders based on user role
 exports.getAllOrders = async (req, res) => {
     try {
-        const orders = await Order.find().sort({ orderDate: -1 });
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        let orders;
+        if (user.role === 'admin') {
+            // If user is an admin, get all orders
+            orders = await Order.find().sort({ orderDate: -1 });
+        } else {
+            // If user is a customer, get only their orders
+            orders = await Order.find({ user: req.user.userId }).sort({ orderDate: -1 });
+        }
         res.json(orders);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 };
 
+// Logic to get a single order by ID
 exports.getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id);
-        if (!order) return res.status(404).json({ msg: 'Order not found' });
+        if (!order) {
+            return res.status(404).json({ msg: 'Order not found' });
+        }
         res.json(order);
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 };
 
+// Logic to export orders as JSON
 exports.exportOrders = async (req, res) => {
     try {
         const orders = await Order.find();
@@ -71,5 +88,21 @@ exports.exportOrders = async (req, res) => {
         res.send(jsonOrders);
     } catch (error) {
         res.status(500).send('Server error');
+    }
+};
+// Add this new function to the file
+exports.updateOrderStatus = async (req, res) => {
+    const { status } = req.body;
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ msg: 'Order not found' });
+        }
+
+        order.status = status;
+        await order.save();
+        res.json(order);
+    } catch (err) {
+        res.status(500).send('Server Error');
     }
 };

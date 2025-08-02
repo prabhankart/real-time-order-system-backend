@@ -17,6 +17,8 @@ app.use(express.json());
 
 app.use('/api/auth', require('./api/routes/authRoutes'));
 app.use('/orders', require('./api/routes/orderRoutes'));
+// Add this line in server.js
+app.use('/api/products', require('./api/routes/productRoutes'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
