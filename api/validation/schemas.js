@@ -11,8 +11,10 @@ const loginSchema = Joi.object({
 });
 
 const orderSchema = Joi.object({
+    
     customerName: Joi.string().min(2).required(),
     orderAmount: Joi.number().positive().required(),
+    
 });
 
 const validate = (schema) => (req, res, next) => {

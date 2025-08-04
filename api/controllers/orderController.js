@@ -5,7 +5,9 @@ const sgMail = require('@sendgrid/mail');
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Logic to create a new order
+
 exports.createOrder = async (req, res) => {
+        console.log('--- create order Reached ---'); // <-- ADD THIS
     const { customerName, orderAmount } = req.body;
     const userId = req.user.userId;
 
@@ -16,6 +18,7 @@ exports.createOrder = async (req, res) => {
     const invoiceFileUrl = req.file.path;
 
     try {
+          console.log('--- create order Reached ---'); // <-- ADD THIS
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found.' });
         
@@ -26,7 +29,7 @@ exports.createOrder = async (req, res) => {
             customerEmail,
             orderAmount: parseFloat(orderAmount),
             invoiceFileUrl,
-            user: userId, // Link the order to the user
+            user: userId,
         });
         await order.save();
 
@@ -40,31 +43,59 @@ exports.createOrder = async (req, res) => {
         
         res.status(201).json(order);
     } catch (err) {
-        console.error('Error creating order:', err);
+        // This will now print the full, detailed error message
+        console.error('Error creating order:', err); 
         res.status(500).json({ message: 'Server error while creating order.' });
     }
 };
 
 // Logic to get orders based on user role
+// Replace the old getAllOrders function with this new one
 exports.getAllOrders = async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
-        let orders;
-        if (user.role === 'admin') {
-            // If user is an admin, get all orders
-            orders = await Order.find().sort({ orderDate: -1 });
-        } else {
-            // If user is a customer, get only their orders
-            orders = await Order.find({ user: req.user.userId }).sort({ orderDate: -1 });
+        // --- NEW: Pagination, Search, and Filter Logic ---
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || '';
+        const status = req.query.status || 'All';
+
+        let query = {};
+
+        // If the user is a customer, they can only see their own orders
+        if (user.role === 'customer') {
+            query.user = req.user.userId;
         }
-        res.json(orders);
+
+        // Add search filter (searches by customer name)
+        if (search) {
+            query.customerName = { $regex: search, $options: 'i' }; // 'i' for case-insensitive
+        }
+
+        // Add status filter
+        if (status !== 'All') {
+            query.status = status;
+        }
+
+        const orders = await Order.find(query)
+            .sort({ orderDate: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
+        
+        const totalOrders = await Order.countDocuments(query);
+
+        res.json({
+            orders,
+            totalPages: Math.ceil(totalOrders / limit),
+            currentPage: page,
+        });
+
     } catch (err) {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
 // Logic to get a single order by ID
 exports.getOrderById = async (req, res) => {
     try {

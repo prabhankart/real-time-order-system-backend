@@ -6,12 +6,14 @@ exports.getAllProducts = async (req, res) => {
         const products = await Product.find();
         res.json(products);
     } catch (err) {
+        console.error(err.message); // <-- Added error logging
         res.status(500).send('Server error');
     }
 };
 
 // Create a new product (Admin only)
 exports.createProduct = async (req, res) => {
+       console.log("Received request body:", req.body); // <-- ADD THIS LINE
     const { name, description, price, imageUrl } = req.body;
     try {
         const newProduct = new Product({
@@ -23,20 +25,18 @@ exports.createProduct = async (req, res) => {
         const product = await newProduct.save();
         res.json(product);
     } catch (err) {
+        console.error(err.message); // <-- Added error logging
         res.status(500).send('Server error');
     }
 };
-// Add these two new functions
 
-// Update a product (Admin only)
 // Update a product (Admin only)
 exports.updateProduct = async (req, res) => {
     try {
-        // Use findByIdAndUpdate for a direct update
         const product = await Product.findByIdAndUpdate(
             req.params.id, 
             req.body, 
-            { new: true } // This option returns the updated document
+            { new: true }
         );
 
         if (!product) {
@@ -53,7 +53,7 @@ exports.updateProduct = async (req, res) => {
 // Delete a product (Admin only)
 exports.deleteProduct = async (req, res) => {
     try {
-        const product = await Product.findByIdAndDelete(req.params.id); // <-- This is the corrected line
+        const product = await Product.findByIdAndDelete(req.params.id);
 
         if (!product) {
             return res.status(404).json({ msg: 'Product not found' });
